@@ -5,6 +5,7 @@
 #
 # Author: Sebastian Thomschke, Vegard IT GmbH
 #
+set -e
 
 echo "#################################################"
 echo "Removing logs, caches and temp files..."

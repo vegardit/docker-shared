@@ -5,6 +5,7 @@
 #
 # Author: Sebastian Thomschke, Vegard IT GmbH
 #
+set -e
 
 echo "#################################################"
 echo "Installing latest OS updates..."
