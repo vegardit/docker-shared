@@ -27,9 +27,12 @@ env -i PATH="$PATH" find "$project_root" -type f -name '*.sh' -exec bash -c "dos
 #################################################
 # using the current date, i.e. the base layer cache (that holds system packages with security updates) will be invalidate once per day
 base_layer_cache_key=$(date +%Y%m%d)
+echo "base_layer_cache_key=$base_layer_cache_key"
 
-trap _on_exit EXIT
 
+#################################################
+# register exit callback
+#################################################
 function _on_exit() {
    rc=$?
    if [[ ! $rc -eq 0 ]]; then
@@ -54,3 +57,4 @@ function _on_exit() {
    echo ""
    docker history "$image_name"
 }
+trap _on_exit EXIT
