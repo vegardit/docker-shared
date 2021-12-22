@@ -10,6 +10,7 @@ source $(dirname $0)/../lib/bash-init.sh
 
 image_name=$1
 
+
 #################################################
 # perform security audit using https://github.com/aquasecurity/trivy
 #################################################
@@ -23,6 +24,7 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       -v /var/run/docker.sock:/var/run/docker.sock:ro \
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
+      -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
       aquasec/trivy --no-progress \
          --severity HIGH,CRITICAL \
          --exit-code 0 \
@@ -32,6 +34,7 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       -v /var/run/docker.sock:/var/run/docker.sock:ro \
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
+      -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
       aquasec/trivy --no-progress \
          --severity HIGH,CRITICAL \
          --ignore-unfixed \
