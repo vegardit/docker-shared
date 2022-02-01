@@ -25,7 +25,7 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
       -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
-      aquasec/trivy --no-progress \
+      aquasec/trivy image --no-progress \
          --severity HIGH,CRITICAL \
          --exit-code 0 \
          $image_name
@@ -35,7 +35,7 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
       -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
-      aquasec/trivy --no-progress \
+      aquasec/trivy image --no-progress \
          --severity HIGH,CRITICAL \
          --ignore-unfixed \
          --ignorefile /.trivyignore \
