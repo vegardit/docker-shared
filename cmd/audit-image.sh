@@ -20,11 +20,15 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
    trivy_cache_dir="${trivy_cache_dir/#\~/$HOME}"
    mkdir -p "$trivy_cache_dir"
 
+   # specifying TRIVY_DB_REPOSITORY as workaround for TOOMANYREQUESTS
+   # see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
    docker run --rm \
       -v /var/run/docker.sock:/var/run/docker.sock:ro \
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
       -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
+      -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db" \
+      -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db" \
       aquasec/trivy image --no-progress \
          --severity HIGH,CRITICAL \
          --exit-code 0 \
@@ -35,6 +39,8 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
       -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
+      -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db" \
+      -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db" \
       aquasec/trivy image --no-progress \
          --severity HIGH,CRITICAL \
          --ignore-unfixed \
