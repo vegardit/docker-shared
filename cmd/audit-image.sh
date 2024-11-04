@@ -24,7 +24,6 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
    # see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
    docker run --rm \
       -v /var/run/docker.sock:/var/run/docker.sock:ro \
-      -v "$PWD/.trivyignore":/.trivyignore \
       -v "$trivy_cache_dir:/root/.cache/" \
       -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
       -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db" \
@@ -44,7 +43,7 @@ if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
       aquasec/trivy image --no-progress \
          --severity HIGH,CRITICAL \
          --ignore-unfixed \
-         --ignorefile /.trivyignore \
+         $([[ -f "$PWD/.trivyignore" ]] && echo "--ignorefile /.trivyignore" || true) \
          --exit-code 1 \
          $image_name
 
