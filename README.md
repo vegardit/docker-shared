@@ -2,7 +2,6 @@
 
 [![Build Status](https://github.com/vegardit/docker-shared/workflows/Build/badge.svg "GitHub Actions")](https://github.com/vegardit/docker-shared/actions?query=workflow%3ABuild)
 [![License](https://img.shields.io/github/license/vegardit/docker-openldap.svg?label=license)](#license)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
 
 1. [What is it?](#what-is-it)
