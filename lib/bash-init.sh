@@ -18,6 +18,7 @@ set -o pipefail
 #################################################
 # configure logging/error reporting
 #################################################
+# shellcheck disable=SC2154 # rc is referenced but not assigned
 trap 'rc=$?; echo >&2 "$(date +%H:%M:%S) Error - exited with status $rc in [$BASH_SOURCE] at line $LINENO:"; cat -n $BASH_SOURCE | tail -n+$((LINENO - 3)) | head -n7' ERR
 
 # if TRACE_SCRIPTS=1 or  TRACE_SCRIPTS contains a glob pattern that matches $0
@@ -30,11 +31,11 @@ if [[ ${TRACE_SCRIPTS:-} == "1" || ${TRACE_SCRIPTS:-} == "$0" ]]; then
       set -T
 
       __trace() {
-         if [[ ${FUNCNAME[1]} == "log" && ${BASH_SOURCE[1]} == ${BASH_SOURCE[0]} ]]; then
+         if [[ ${FUNCNAME[1]} == "log" && ${BASH_SOURCE[1]} == "${BASH_SOURCE[0]}" ]]; then
             # don't log internals of log() function
             return
          fi
-         printf "\e[90m#[$?] ${BASH_SOURCE[1]}:$1 ${FUNCNAME[1]}() %*s\e[35m%s\e[m\n" "$(( 2 * ($BASH_SUBSHELL + ${#FUNCNAME[*]} - 2) ))" "$BASH_COMMAND" >&2
+         printf "\e[90m#[$?] ${BASH_SOURCE[1]}:$1 ${FUNCNAME[1]}() %*s\e[35m%s\e[m\n" "$(( 2 * (BASH_SUBSHELL + ${#FUNCNAME[*]} - 2) ))" "$BASH_COMMAND" >&2
       }
       trap '__trace $LINENO' DEBUG
    fi
@@ -49,13 +50,13 @@ function log() {
       *) log ERROR "Unsupported log-level $level"; exit 1 ;;
    esac
 
-   prefix="$(date "+%Y-%m-%d %H:%M:%S") $level [${BASH_SOURCE[1]}:$BASH_LINENO]"
+   prefix="$(date "+%Y-%m-%d %H:%M:%S") $level [${BASH_SOURCE[1]}:${BASH_LINENO[0]}]"
    if [ -p /dev/stdin ]; then
-      while read line; do
+      while read -r line; do
          echo "$prefix $line"
       done
    else
-      echo "$prefix ${@:2}"
+      echo "$prefix" "${@:2}"
    fi
 }
 

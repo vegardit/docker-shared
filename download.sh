@@ -27,7 +27,7 @@ if [ -e "$install_dir" ]; then
       echo "ERROR: Target path [$install_dir] already exists and is a file!"
       exit 1
    fi
-   if [ -n "$(ls -A '$install_dir')" ]; then
+   if [ -n "$(ls -A "$install_dir")" ]; then
       echo "ERROR: Target directory [$install_dir] already exists and is not empty!"
       exit 1
    fi
@@ -42,7 +42,7 @@ echo "INFO: Downloading [github.com/vegardit/docker-shared@$branch] into [$insta
 #curl + tar is faster
 #git clone --depth 1 --single-branch --branch $branch https://github.com/vegardit/docker-shared/ $install_dir
 mkdir -p "$install_dir"
-curl -fsS https://codeload.github.com/vegardit/docker-shared/tar.gz/refs/heads/$branch | tar xz -C "$install_dir" --strip-components 1
+curl -fsS "https://codeload.github.com/vegardit/docker-shared/tar.gz/refs/heads/$branch" | tar xz -C "$install_dir" --strip-components 1
 
 
 #################################################

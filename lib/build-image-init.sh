@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-ArtifactOfProjectHomePage: https://github.com/vegardit/docker-shared
 
-source $(dirname ${BASH_SOURCE[0]})/bash-init.sh
+# shellcheck source=SCRIPTDIR/bash-init.sh
+source "$(dirname "${BASH_SOURCE[0]}")/bash-init.sh"
 
 #################################################
 # determine directory of current script
 #################################################
-project_root=$(readlink -e $(dirname "$0"))
+project_root=$(readlink -e "$(dirname "$0")")
 echo "project_root=$project_root"
 
 
@@ -42,18 +43,20 @@ function _on_exit() {
    # remove untagged images
    #################################################
    # http://www.projectatomic.io/blog/2015/07/what-are-docker-none-none-images/
-   untagged_images=$(docker images -f "dangling=true" -q --no-trunc)
-   [[ -n $untagged_images ]] && docker rmi $untagged_images || true
+   docker images -f dangling=true -q --no-trunc | xargs -r docker rmi || true
 
    #################################################
    # display some image information
    #################################################
    echo ""
    echo "IMAGE NAME"
+   # shellcheck disable=SC2154  # image_name is referenced but not assigned.
    echo "$image_name"
    echo ""
+   # shellcheck disable=SC2154  # image_repo is referenced but not assigned.
    docker images "$image_repo"
    echo ""
+   # shellcheck disable=SC2154  # image_name is referenced but not assigned.
    docker history "$image_name"
 }
 trap _on_exit EXIT

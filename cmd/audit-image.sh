@@ -5,48 +5,49 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-ArtifactOfProjectHomePage: https://github.com/vegardit/docker-shared
 
-source $(dirname $0)/../lib/bash-init.sh
+# shellcheck source=SCRIPTDIR/../lib/bash-init.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/bash-init.sh"
 
-image_name=$1
+image_name=${1:?Usage: $0 IMAGE_NAME}
 
 
 #################################################
 # perform security audit using https://github.com/aquasecurity/trivy
 #################################################
-if [[ $OSTYPE != cygwin ]] && [[ $OSTYPE != msys ]]; then
-   log INFO "Scanning [$image_name]..."
-   trivy_cache_dir="${TRIVY_CACHE_DIR:-$HOME/.trivy/cache}"
-   trivy_cache_dir="${trivy_cache_dir/#\~/$HOME}"
-   mkdir -p "$trivy_cache_dir"
-
-   # specifying TRIVY_DB_REPOSITORY as workaround for TOOMANYREQUESTS
-   # see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
-   docker run --rm \
-      -v /var/run/docker.sock:/var/run/docker.sock:ro \
-      -v "$trivy_cache_dir:/root/.cache/" \
-      -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
-      -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db" \
-      -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db" \
-      aquasec/trivy image --no-progress \
-         --severity HIGH,CRITICAL \
-         --exit-code 0 \
-         $image_name
-
-   docker run --rm \
-      -v /var/run/docker.sock:/var/run/docker.sock:ro \
-      -v "$PWD/.trivyignore":/.trivyignore \
-      -v "$trivy_cache_dir:/root/.cache/" \
-      -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}" \
-      -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db" \
-      -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db" \
-      aquasec/trivy image --no-progress \
-         --severity HIGH,CRITICAL \
-         --ignore-unfixed \
-         $([[ -f "$PWD/.trivyignore" ]] && echo "--ignorefile /.trivyignore" || true) \
-         --exit-code 1 \
-         $image_name
-
-   sudo chown -R $USER:$(id -gn) "$trivy_cache_dir" || true
-else
+if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* ]]; then
    log WARN "Skipping scan of image [$image_name] on Windows..."
+   exit 0
 fi
+
+log INFO "Scanning [$image_name]..."
+
+# Prepare Trivy cache directory
+trivy_cache_dir="${TRIVY_CACHE_DIR:-$HOME/.trivy/cache}"
+trivy_cache_dir="${trivy_cache_dir/#\~/$HOME}"
+mkdir -p "$trivy_cache_dir"
+
+
+# Specifying TRIVY_DB_REPOSITORY as workaround for TOOMANYREQUESTS
+# see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
+trivy_args=(
+  --rm
+  -v /var/run/docker.sock:/var/run/docker.sock:ro
+  -v "$trivy_cache_dir:/root/.cache/"
+  -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
+  -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db"
+  -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db"
+  aquasec/trivy image --no-progress --severity "HIGH,CRITICAL"
+)
+
+# 1) Initial scan (non-failing)
+docker run "${trivy_args[@]}" --exit-code 0 "$image_name"
+
+# 2) Failing scan with ignore-unfixed (and optional .trivyignore)
+trivy_ignore_args=(--ignore-unfixed)
+if [[ -f "$PWD/.trivyignore" ]]; then
+  trivy_ignore_args+=(--ignorefile /.trivyignore)
+fi
+docker run "${trivy_args[@]}" "${trivy_ignore_args[@]}" --exit-code 1 "$image_name"
+
+# Ensure cache ownership for user
+sudo chown -R "$USER:$(id -gn)" "$trivy_cache_dir" || true

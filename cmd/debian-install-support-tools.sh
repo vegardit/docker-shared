@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-ArtifactOfProjectHomePage: https://github.com/vegardit/docker-shared
 
-source $(dirname $0)/../lib/bash-init.sh
+# shellcheck source=SCRIPTDIR/../lib/bash-init.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/bash-init.sh"
 
 if [ "${INSTALL_SUPPORT_TOOLS:-}" = "1" ]; then
    echo "#################################################"
