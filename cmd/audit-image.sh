@@ -29,25 +29,26 @@ mkdir -p "$trivy_cache_dir"
 
 # Specifying TRIVY_DB_REPOSITORY as workaround for TOOMANYREQUESTS
 # see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
+export GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}
 trivy_args=(
   --rm
   -v /var/run/docker.sock:/var/run/docker.sock:ro
   -v "$trivy_cache_dir:/root/.cache/"
-  -e "GITHUB_TOKEN=${TRIVY_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
+  -e GITHUB_TOKEN
   -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db"
   -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db"
   aquasec/trivy image --no-progress --severity "HIGH,CRITICAL"
 )
 
 # 1) Initial scan (non-failing)
-docker run "${trivy_args[@]}" --exit-code 0 "$image_name"
+(set -x; docker run "${trivy_args[@]}" --exit-code 0 "$image_name")
 
 # 2) Failing scan with ignore-unfixed (and optional .trivyignore)
 trivy_ignore_args=(--ignore-unfixed)
 if [[ -f "$PWD/.trivyignore" ]]; then
   trivy_ignore_args+=(--ignorefile "$PWD/.trivyignore")
 fi
-docker run "${trivy_args[@]}" "${trivy_ignore_args[@]}" --exit-code 1 "$image_name"
+(set -x; docker run "${trivy_args[@]}" "${trivy_ignore_args[@]}" --exit-code 1 "$image_name")
 
 # Ensure cache ownership for user
 sudo chown -R "$USER:$(id -gn)" "$trivy_cache_dir" || true
