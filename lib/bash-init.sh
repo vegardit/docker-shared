@@ -50,13 +50,16 @@ function log() {
       *) log ERROR "Unsupported log-level $level"; exit 1 ;;
    esac
 
+   local prefix
    prefix="$(date "+%Y-%m-%d %H:%M:%S") $level [${BASH_SOURCE[1]}:${BASH_LINENO[0]}]"
-   if [ -p /dev/stdin ]; then
-      while read -r line; do
-         echo "$prefix $line"
-      done
+
+   shift
+   if (( $# )); then
+      printf '%s %s\n' "$prefix" "$*"
    else
-      echo "$prefix" "${@:2}"
+      while IFS= read -r line; do
+         printf '%s %s\n' "$prefix" "$line"
+      done
    fi
 }
 
