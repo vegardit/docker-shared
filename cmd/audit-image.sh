@@ -26,6 +26,12 @@ trivy_cache_dir="${TRIVY_CACHE_DIR:-$HOME/.trivy/cache}"
 trivy_cache_dir="${trivy_cache_dir/#\~/$HOME}"
 mkdir -p "$trivy_cache_dir"
 
+# choose Trivy image based on environment
+if [[ -n ${GITHUB_ACTIONS:-} ]]; then
+  trivy_image="ghcr.io/aquasecurity/trivy"
+else
+  trivy_image="aquasec/trivy"
+fi
 
 # Specifying TRIVY_DB_REPOSITORY as workaround for TOOMANYREQUESTS
 # see https://github.com/aquasecurity/trivy/discussions/7668#discussioncomment-10884984
@@ -37,7 +43,7 @@ trivy_args=(
   -e GITHUB_TOKEN
   -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db"
   -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db"
-  aquasec/trivy image --no-progress --severity "HIGH,CRITICAL"
+  "$trivy_image" image --no-progress --severity "HIGH,CRITICAL"
 )
 
 # 1) Initial scan (non-failing)
