@@ -52,7 +52,8 @@ trivy_args=(
 # 2) Failing scan with ignore-unfixed (and optional .trivyignore)
 trivy_ignore_args=(--ignore-unfixed)
 if [[ -f "$PWD/.trivyignore" ]]; then
-  trivy_ignore_args+=(--ignorefile "$PWD/.trivyignore")
+  trivy_args=("-v" "$PWD/.trivyignore:/tmp/.trivyignore:ro" "${trivy_args[@]}")
+  trivy_ignore_args+=(--ignorefile "/tmp/.trivyignore")
 fi
 (set -x; docker run "${trivy_args[@]}" "${trivy_ignore_args[@]}" --exit-code 1 "$image_name")
 
