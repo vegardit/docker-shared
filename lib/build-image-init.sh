@@ -170,6 +170,31 @@ run_step() {
 }
 
 
+# curl_with_retry – Invoke curl with sane defaults unless overridden by caller
+#
+# Usage:
+#   curl_with_retry [curl_options] <url> [...]
+#
+# Examples:
+#   # Use all the defaults
+#   curl_with_retry https://example.com/data.json
+#
+#   # Override just the max-time (don't use the default of 30s)
+#   curl_with_retry --max-time 60 https://example.com/data.json
+#
+#   # Disable retries entirely by explicitly setting --retry 0
+#   curl_with_retry --retry 0 https://example.com/data.json
+curl_with_retry() {
+  local args=("$@")
+
+  [[ $* != *"--connect-timeout"* ]] && args=(--connect-timeout 10 "${args[@]}")
+  [[ $* != *"--max-time"*        ]] && args=(--max-time 30        "${args[@]}")
+  [[ $* != *"--retry"*           ]] && args=(--retry 3            "${args[@]}")
+
+  command curl -sSfL --retry-all-errors "${args[@]}"
+}
+
+
 # start_docker_registry - Launch a local Docker registry on a free port and export its address
 #
 # Usage:
@@ -200,10 +225,9 @@ function start_docker_registry() {
       add_trap "docker stop '${local_registry_container_name}'" EXIT
 
       log INFO "Waiting for Docker registry [http://$local_registry/v2/] to be ready..."
-      if ! curl --fail --silent --show-error \
+      if ! curl_with_retry \
                 --max-time 1 \
                 --retry 10 \
-                --retry-all-errors \
                 --retry-delay 1 \
                 --retry-max-time 10 \
                 "http://$local_registry/v2/"; then
