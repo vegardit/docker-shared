@@ -5,32 +5,32 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-ArtifactOfProjectHomePage: https://github.com/vegardit/docker-shared
 
-set -eu
+set -euo pipefail
 
 #################################################
 # argument parsing
 #################################################
 if [ "$#" -ne 2 ]; then
-   echo "Usage: $0 GITHUB_BRANCH INSTALL_DIRECTORY" >&2
-   echo
-   echo "Examples:"
-   echo " $ $0 v1 ./.shared"
-   echo " $ curl -sSf https://raw.githubusercontent.com/vegardit/docker-shared/v1/download.sh?_=\$(date +%s) | bash -s v1 ./.shared"
-   exit 1
+  echo "Usage: $0 GITHUB_BRANCH INSTALL_DIRECTORY" >&2
+  echo
+  echo "Examples:"
+  echo " $ $0 v1 ./.shared"
+  echo " $ curl -sSf https://raw.githubusercontent.com/vegardit/docker-shared/v1/download.sh?_=\$(date +%s) | bash -s v1 ./.shared"
+  exit 1
 fi
 
 branch=$1
 install_dir=$2
 
-if [ -e "$install_dir" ]; then
-   if [ -f "$install_dir" ]; then
-      echo "ERROR: Target path [$install_dir] already exists and is a file!"
-      exit 1
-   fi
-   if [ -n "$(ls -A "$install_dir")" ]; then
-      echo "ERROR: Target directory [$install_dir] already exists and is not empty!"
-      exit 1
-   fi
+if [[ -e $install_dir ]]; then
+  if [[ -f $install_dir ]]; then
+    echo "ERROR: Target path [$install_dir] already exists and is a file!"
+    exit 1
+  fi
+  if [ -n "$(ls -A "$install_dir")" ]; then
+    echo "ERROR: Target directory [$install_dir] already exists and is not empty!"
+    exit 1
+  fi
 fi
 
 
@@ -48,11 +48,12 @@ curl -fsS "https://codeload.github.com/vegardit/docker-shared/tar.gz/refs/heads/
 #################################################
 # ensure Linux new line chars
 #################################################
-# check if dos2unix command is abailable
+# check if dos2unix command is available
 if command -v dos2unix >/dev/null; then
-   # env -i PATH="$PATH" -> workaround for "find: The environment is too large for exec()"
-   env -i PATH="$PATH" find "$install_dir" -type f -name '*.sh' -exec bash -c "dos2unix < '{}' | cmp --silent '{}' - || dos2unix '{}'" \;
+  # env -i PATH="$PATH" -> workaround for "find: The environment is too large for exec()"
+  env -i PATH="$PATH" find "$install_dir" -type f -name '*.sh' -exec bash -c "dos2unix < '{}' | cmp --silent '{}' - || dos2unix '{}'" \;
 fi
+
 
 #################################################
 # ensure scripts are executable

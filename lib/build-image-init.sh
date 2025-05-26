@@ -34,29 +34,32 @@ echo "base_layer_cache_key=$base_layer_cache_key"
 # register exit callback
 #################################################
 function _on_exit() {
-   rc=$?
-   if [[ ! $rc -eq 0 ]]; then
-      exit $rc
-   fi
+  local rc
+  rc=$?
+  if [[ ! $rc -eq 0 ]]; then
+    exit $rc
+  fi
 
-   #################################################
-   # remove untagged images
-   #################################################
-   # http://www.projectatomic.io/blog/2015/07/what-are-docker-none-none-images/
-   docker images -f dangling=true -q --no-trunc | xargs -r docker rmi || true
+  #################################################
+  # remove untagged images
+  #################################################
+  # http://www.projectatomic.io/blog/2015/07/what-are-docker-none-none-images/
+  docker images -f dangling=true -q --no-trunc | xargs -r docker rmi || true
 
-   #################################################
-   # display some image information
-   #################################################
-   echo ""
-   echo "IMAGE NAME"
-   # shellcheck disable=SC2154  # image_name is referenced but not assigned.
-   echo "$image_name"
-   echo ""
-   # shellcheck disable=SC2154  # image_repo is referenced but not assigned.
-   docker images "$image_repo"
-   echo ""
-   # shellcheck disable=SC2154  # image_name is referenced but not assigned.
-   docker history "$image_name"
+  #################################################
+  # display some image information
+  #################################################
+  if [[ -n ${image_name:-} && -n ${image_repo:-} ]]; then
+    echo ""
+    echo "IMAGE NAME"
+    # shellcheck disable=SC2154  # image_name is referenced but not assigned.
+    echo "$image_name"
+    echo ""
+    # shellcheck disable=SC2154  # image_repo is referenced but not assigned.
+    docker images "$image_repo"
+    echo ""
+    # shellcheck disable=SC2154  # image_name is referenced but not assigned.
+    docker history "$image_name"
+  fi
 }
 trap _on_exit EXIT
