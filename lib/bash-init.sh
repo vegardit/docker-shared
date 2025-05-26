@@ -104,6 +104,7 @@ function add_trap() {
   trap -- "$combined" "$sig"
 }
 
+
 # interpolate - pure Bash alternative to `envsubst` for basic variable expansion
 #
 # Usage:
