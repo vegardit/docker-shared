@@ -62,4 +62,4 @@ function _on_exit() {
     docker history "$image_name"
   fi
 }
-trap _on_exit EXIT
+add_trap _on_exit EXIT

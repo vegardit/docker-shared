@@ -16,30 +16,8 @@ set -o pipefail
 
 
 #################################################
-# configure logging/error reporting
+# core functions
 #################################################
-# shellcheck disable=SC2154 # rc is referenced but not assigned
-trap 'rc=$?; echo >&2 "$(date +%H:%M:%S) Error - exited with status $rc in [$BASH_SOURCE] at line $LINENO:"; cat -n $BASH_SOURCE | tail -n+$((LINENO - 3)) | head -n7' ERR
-
-# if TRACE_SCRIPTS=1 or  TRACE_SCRIPTS contains a glob pattern that matches $0
-if [[ ${TRACE_SCRIPTS:-} == "1" || ${TRACE_SCRIPTS:-} == "$0" ]]; then
-  if [[ $- =~ x ]]; then
-    # "set -x" was specified already, we only improve the PS4 in this case
-    PS4='+\033[90m[$?] $BASH_SOURCE:$LINENO ${FUNCNAME[0]}()\033[0m '
-  else
-    # "set -x" was not specified, we use a DEBUG trap for better debug output
-    set -T
-
-    __trace() {
-      if [[ ${FUNCNAME[1]} == "log" && ${BASH_SOURCE[1]} == "${BASH_SOURCE[0]}" ]]; then
-        # don't log internals of log() function
-        return
-       fi
-       printf "\e[90m#[$?] ${BASH_SOURCE[1]}:$1 ${FUNCNAME[1]}() %*s\e[35m%s\e[m\n" "$(( 2 * (BASH_SUBSHELL + ${#FUNCNAME[*]} - 2) ))" "$BASH_COMMAND" >&2
-    }
-    trap '__trace $LINENO' DEBUG
-  fi
-fi
 
 # log - structured logger for stdout/stderr or piped input
 #
@@ -69,6 +47,63 @@ function log() {
   fi
 }
 
+
+# add_trap - append a command to a signal trap without overwriting it
+#
+# Usage: add_trap "command" [SIGNAL]
+#   command - string to evaluate when SIGNAL triggers
+#   SIGNAL  - name or number (default: EXIT)
+#
+# Examples:
+#   add_trap 'echo goodbye'      # appends to EXIT
+#   add_trap 'echo SIGINT!' INT
+#
+# Skips duplicate registrations for the same command+signal combo.
+function add_trap() {
+  local cmd=$1
+  local sig=${2:-EXIT}
+
+  local sig_name
+  {
+    if [[ $sig =~ ^[0-9]+$ ]]; then
+      sig_name=$(kill -l "$sig")
+    else
+      sig_name=${sig^^}
+      kill -l "$sig_name" &>/dev/null
+    fi
+  } || {
+    log ERROR "add_trap: invalid signal '$sig'"
+    return 1
+  }
+
+  # Compute effective trap list for current (sub)shell
+  # Based on info from https://stackoverflow.com/a/59307894/5116073
+  local old
+  if [[ "${BASH_VERSINFO:-0}" -ge 4 ]]; then
+    trap -- KILL &>/dev/null || true
+    old=$(trap -p "$sig_name")
+  else
+    old=$( (trap -p "$sig_name") )
+  fi
+  old=${old#*\'}         # remove leading "trap -- '"
+  old=${old%\'*}         # remove trailing "' EXIT"
+  old=${old//"'\''"/"'"} # unescape every '\'' to '
+
+  # if already present, do nothing
+  if [[ ";$old;" == *";$cmd;"* ]]; then
+    return 0
+  fi
+
+  # build the new combined handler
+  if [[ -n $old ]]; then
+    combined="$old;$cmd"
+  else
+    combined="$cmd"
+  fi
+
+  trap -- "$combined" "$sig"
+}
+
 # interpolate - pure Bash alternative to `envsubst` for basic variable expansion
 #
 # Usage:
@@ -90,3 +125,34 @@ function interpolate() {
     eval "printf '%s\n' \"$lineEscaped\"" | tr '\1\2\3\4' '`([$'
   done
 }
+
+
+#################################################
+# configure logging/error reporting
+#################################################
+set -o errtrace
+
+# shellcheck disable=SC2016   # Expressions don't expand in single quotes
+add_trap 'rc=$?; echo >&2 "$(date +%H:%M:%S) Error - exited with status $rc in [$BASH_SOURCE] at line $LINENO:"; cat -n $BASH_SOURCE | tail -n+$((LINENO - 3)) | head -n7' ERR
+
+# if TRACE_SCRIPTS=1 or  TRACE_SCRIPTS contains a glob pattern that matches $0
+if [[ ${TRACE_SCRIPTS:-} == "1" || ${TRACE_SCRIPTS:-} == "$0" ]]; then
+  if [[ $- =~ x ]]; then
+    # "set -x" was specified already, we only improve the PS4 in this case
+    PS4='+\033[90m[$?] $BASH_SOURCE:$LINENO ${FUNCNAME[0]}()\033[0m '
+  else
+    # "set -x" was not specified, we use a DEBUG trap for better debug output
+    set -o functrace
+
+    __trace() {
+      if [[ ${FUNCNAME[1]} == "log" && ${BASH_SOURCE[1]} == "${BASH_SOURCE[0]}" ]]; then
+        # don't log internals of log() function
+        return
+      fi
+      printf "\e[90m#[$?] ${BASH_SOURCE[1]}:$1 ${FUNCNAME[1]}() %*s\e[35m%s\e[m\n" "$(( 2 * (BASH_SUBSHELL + ${#FUNCNAME[*]} - 2) ))" "$BASH_COMMAND" >&2
+    }
+
+    # shellcheck disable=SC2016   # Expressions don't expand in single quotes
+    add_trap '__trace $LINENO' DEBUG
+  fi
+fi
