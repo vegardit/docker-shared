@@ -18,8 +18,10 @@ echo "project_root=$project_root"
 #################################################
 # ensure Linux new line chars
 #################################################
-# env -i PATH="$PATH" -> workaround for "find: The environment is too large for exec()"
-env -i PATH="$PATH" find "$project_root" -type f -name '*.sh' -exec bash -c "dos2unix < '{}' | cmp --silent '{}' - || dos2unix '{}'" \;
+if command -v dos2unix >/dev/null; then
+  # env -i PATH="$PATH" -> workaround for "find: The environment is too large for exec()"
+  env -i PATH="$PATH" find "$project_root" -type f -name '*.sh' -exec bash -c "dos2unix < '{}' | cmp --silent '{}' - || dos2unix '{}'" \;
+fi
 
 
 #################################################
