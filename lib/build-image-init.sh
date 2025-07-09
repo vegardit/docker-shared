@@ -144,7 +144,7 @@ run_step() {
   fi
 
   # Header
-  if [[ ${GITHUB_ACTIONS:-} == "true" && -z ${ACT:-} ]]; then
+  if [[ ${GITEA_ACTIONS:-} == "true" || (${GITHUB_ACTIONS:-} == "true" && -z ${ACT:-}) ]]; then
     printf '::group::%s\n' "$title"
   else
     # need to color each line separately for nektos/act
@@ -160,7 +160,7 @@ run_step() {
   rc=$?
 
   # Footer
-  if [[ ${GITHUB_ACTIONS:-} == "true" && -z ${ACT:-} ]]; then
+  if [[ ${GITEA_ACTIONS:-} == "true" || (${GITHUB_ACTIONS:-} == "true" && -z ${ACT:-}) ]]; then
     echo "::endgroup::"
   else
     printf '\033[92m───────────────────────────────────────────────────────────\033[0m\n'
