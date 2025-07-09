@@ -197,61 +197,86 @@ curl_with_retry() {
 }
 
 
-# start_docker_registry - Launch a local Docker registry on a free port and export its address
+# start_docker_registry - Launch a local Docker registry and export its address
 #
 # Usage:
 #   start_docker_registry <ENV_VAR_NAME>
 #
 # Description:
-#   Starts a Docker registry container on the first free port between 5000–6000.
-#   Waits for it to become reachable, then exports its address (e.g. 127.0.0.1:5001)
-#   to the specified environment variable. Also sets a companion variable
-#   <ENV_VAR_NAME>_CONTAINER_NAME with the container name and registers a trap
-#   to stop the container on EXIT.
+#   Starts a Docker registry container with automatic host-port mapping.
+#   Waits for the registry at `http://127.0.0.1:<port>/v2/` to become ready,
+#   then exports:
+#     <ENV_VAR_NAME>               – registry endpoint (host:port, e.g. 127.0.0.1:32768)
+#     <ENV_VAR_NAME>_CONTAINER_ID  – container ID
+#     <ENV_VAR_NAME>_CONTAINER_NAME– container name
+#   Registers a trap to stop the registry on script EXIT.
 #
 # Example:
 #   start_docker_registry LOCAL_REGISTRY
 #   curl http://$LOCAL_REGISTRY/v2/
 function start_docker_registry() {
   local result_env_var=$1
-  local local_registry
-  local local_registry_container_name
-  local port
 
-  for port in {5000..6000}; do
-    if ! lsof -iTCP:"$port" -sTCP:LISTEN -t >/dev/null; then
-      local_registry_container_name="local-registry-$port"
-      (set -x; docker run -d --rm -p "$port:5000" --name "$local_registry_container_name" ghcr.io/dockerhub-mirror/registry)
-      local_registry="127.0.0.1:$port"
-
-      add_trap "docker stop '${local_registry_container_name}'" EXIT
-
-      log INFO "Waiting for Docker registry [http://$local_registry/v2/] to be ready..."
-      if ! curl_with_retry \
-                --max-time 1 \
-                --retry 10 \
-                --retry-delay 1 \
-                --retry-max-time 10 \
-                "http://$local_registry/v2/"; then
-        echo "❌ Docker registry failed to start" >&2
-        return 1
-      fi
-      log INFO "✅ Registry is ready."
-      break
-    fi
-  done
-  if [[ -z "${local_registry:-}" ]]; then
-    echo "❌ No free TCP port between 5000–6000" >&2
-    return 1
+  # Detect whether *this* script is running in a container
+  if ! grep -Eq '(docker|kubepods|containerd|actions_job)' <(head -n1 /proc/1/cgroup); then
+    local run_args="-P" # we’re on a host VM -> publish random host port
   fi
 
-  # assign to the dynamic variable and export it
-  eval "$result_env_var=\"$local_registry\""
-  # shellcheck disable=SC2163  # This does not export 'result_env_var'. Remove $/${} for that, or use ${var?} to quiet.
-  export "$result_env_var"
+  # Launch the registry with an automatic host port
+  local container_id
+  # shellcheck disable=SC2086  # Double quote to prevent globbing and word
+  container_id=$(docker run -d --rm ${run_args:-} ghcr.io/dockerhub-mirror/registry)
+  if [[ -z $container_id ]]; then
+    echo "❌ Failed to start registry container" >&2
+    return 1
+  fi
+  add_trap "docker stop '$container_id'" EXIT
+
+  local host port
+  if [[ -z ${run_args:-} ]]; then
+    # --- inside a container (e.g. act_runner): use container IP + fixed port 5000
+    host=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container_id")
+    port=5000
+  else
+    # --- outside: discover the random host port that Docker published
+    for _ in {1..10}; do
+      port=$(docker inspect --format='{{ (index (index .NetworkSettings.Ports "5000/tcp") 0).HostPort }}' "$container_id")
+      [[ -n $port ]] && break
+      sleep 0.2
+    done
+    if [[ -z $port ]]; then
+      echo "❌ Could not determine host port for registry" >&2
+      docker stop "$container_id"
+      return 1
+    fi
+    host=127.0.0.1
+  fi
+
+  # Wait for the registry to become reachable
+  local local_registry="$host:$port"
+  local local_registry_url="http://$local_registry/v2/"
+  log INFO "Waiting for Docker registry [$local_registry_url] to be ready..."
+  if ! curl_with_retry \
+            --max-time 1 \
+            --retry 10 \
+            --retry-delay 1 \
+            --retry-max-time 10 \
+            "$local_registry_url"; then
+    echo "❌ Docker registry failed to start" >&2
+    docker stop "$container_id"
+    return 1
+  fi
+  log INFO "✅ Registry is ready."
+
+  # Export variables
+  export "$result_env_var"="$local_registry"
   echo "$result_env_var=$local_registry"
 
-  eval "${result_env_var}_CONTAINER_NAME=\"$local_registry_container_name\""
-  export "${result_env_var}_CONTAINER_NAME"
-  echo "${result_env_var}_CONTAINER_NAME=$local_registry_container_name"
+  export "${result_env_var}_CONTAINER_ID"="$container_id"
+  echo "${result_env_var}_CONTAINER_ID=$container_id"
+
+  local container_name
+  container_name=$(docker inspect --format='{{.Name}}' "$container_id" | sed 's|^/||')
+  export "${result_env_var}_CONTAINER_NAME"="$container_name"
+  echo "${result_env_var}_CONTAINER_NAME=$container_name"
 }
