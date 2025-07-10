@@ -101,7 +101,14 @@ function add_trap() {
     combined="$cmd"
   fi
 
-  trap -- "$combined" "$sig"
+  # check if debugging requested *and* xtrace wasn't already on
+  if [[ ${ADD_TRAP_DEBUG:-} =~ ^(1|true)$ && $- != *x* ]]; then
+    set -x
+    trap -- "$combined" "$sig"
+    set +x
+  else
+    trap -- "$combined" "$sig"
+  fi
 }
 
 
