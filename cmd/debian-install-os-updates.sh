@@ -13,5 +13,5 @@ echo "Installing latest OS updates..."
 echo "#################################################"
 apt-get update
 # https://github.com/phusion/baseimage-docker/issues/319
-apt-get install --no-install-recommends -y apt-utils 2> >( grep -v 'debconf: delaying package configuration, since apt-utils is not installed' >&2 )
+apt-get install --no-install-recommends -y apt-utils 2> >( grep -v 'debconf: delaying package configuration, since apt-utils is not installed' >&2 || true)
 apt-get upgrade -y
