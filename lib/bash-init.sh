@@ -22,23 +22,55 @@ set -o pipefail
 # log - structured logger for stdout/stderr or piped input
 #
 # Usage:
+#   log BOX "Initializing system..."
 #   log INFO "This is an info message"
+#   log WARN "Log file is missing"
 #   log ERROR "Something went wrong"
 #   echo "message" | log INFO
 #   the_command 2> >(log ERROR >&2) | log INFO
 function log() {
-  level=${1:-INFO}
+  local level=${1:-INFO}
   level=${level^^}
+  shift
+
   case $level in
-    INFO|WARN|ERROR) ;;
+    BOX)             local display_level=INFO ;;
+    INFO|WARN|ERROR) local display_level=$level ;;
     *) log ERROR "Unsupported log-level $level"; exit 1 ;;
   esac
 
   local prefix
-  prefix="$(date "+%Y-%m-%d %H:%M:%S") $level [${BASH_SOURCE[1]}:${BASH_LINENO[0]}]"
+  prefix="$(date "+%Y-%m-%d %H:%M:%S") $display_level [${BASH_SOURCE[1]}:${BASH_LINENO[0]}]"
 
-  shift
-  if (( $# )); then
+  if [[ $level == BOX ]]; then
+    # Use Unicode box drawing unless NO_UNICODE is set
+    local h_line v_line tl tr bl br
+    if [[ -n ${NO_UNICODE:-} ]]; then
+      h_line='-'; v_line='|'; tl='+'; tr='+'; bl='+'; br='+'
+    else
+      h_line='─'; v_line='│'; tl='┌'; tr='┐'; bl='└'; br='┘'
+    fi
+
+    # Read boxed text
+    local text="$*"
+    if [[ -z $text ]]; then
+      IFS= read -r text || return
+    fi
+
+    # Support multi-line messages
+    local line lines maxlen=0
+    IFS=$'\n' read -rd '' -a lines <<<"$text" || true
+    for line in "${lines[@]}"; do
+      (( ${#line} > maxlen )) && maxlen=${#line}
+    done
+    (( maxlen < 40 )) && maxlen=40
+
+    printf '%s %s\n' "$prefix" "$tl$(printf '%*s' $((maxlen + 2)) '' | tr ' ' "$h_line")$tr"
+    for line in "${lines[@]}"; do
+      printf '%s %s %-*s %s\n' "$prefix" "$v_line" "$maxlen" "$line" "$v_line"
+    done
+    printf '%s %s\n' "$prefix" "$bl$(printf '%*s' $((maxlen + 2)) '' | tr ' ' "$h_line")$br"
+  elif (( $# )); then
     printf '%s %s\n' "$prefix" "$*"
   else
     while IFS= read -r line; do
