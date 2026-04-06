@@ -43,19 +43,19 @@ trivy_args=(
   -e GITHUB_TOKEN
   -e "TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db"
   -e "TRIVY_JAVA_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db"
-  "$trivy_image" image --no-progress --severity "HIGH,CRITICAL"
+  "$trivy_image" image --no-progress
 )
 
-# 1) Initial scan (non-failing)
-(set -x; docker run "${trivy_args[@]}" --exit-code 0 "$image_name")
+# 1) Report HIGH + CRITICAL, but don't fail
+(set -x; docker run "${trivy_args[@]}" --severity "HIGH,CRITICAL" --exit-code 0 "$image_name")
 
-# 2) Failing scan with ignore-unfixed (and optional .trivyignore)
-trivy_ignore_args=(--ignore-unfixed)
+# 2) Fail only on CRITICAL, ignore unfixed, respect .trivyignore
+trivy_fail_args=(--severity "CRITICAL" --ignore-unfixed)
 if [[ -f "$PWD/.trivyignore" ]]; then
   trivy_args=("-v" "$PWD/.trivyignore:/tmp/.trivyignore:ro" "${trivy_args[@]}")
-  trivy_ignore_args+=(--ignorefile "/tmp/.trivyignore")
+  trivy_fail_args+=(--ignorefile "/tmp/.trivyignore")
 fi
-(set -x; docker run "${trivy_args[@]}" "${trivy_ignore_args[@]}" --exit-code 1 "$image_name")
+(set -x; docker run "${trivy_args[@]}" "${trivy_fail_args[@]}" --exit-code 1 "$image_name")
 
 # Ensure cache ownership for user
 sudo chown -R "$USER:$(id -gn)" "$trivy_cache_dir" || true
